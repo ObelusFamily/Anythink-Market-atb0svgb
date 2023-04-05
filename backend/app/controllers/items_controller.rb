@@ -54,7 +54,6 @@ class ItemsController < ApplicationController
   def create
     @item = Item.new(item_params)
     @item.user = current_user
-  
     if @item.image.blank?
       # Generate an image using OpenAI's API
       openai_key = ENV['OPENAI_API_KEY']

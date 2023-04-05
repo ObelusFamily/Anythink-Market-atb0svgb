@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 require_relative "../../lib/event"
 include Event
+require 'net/http'
 
 class ItemsController < ApplicationController
   before_action :authenticate_user!, except: %i[index show]
@@ -53,7 +54,32 @@ class ItemsController < ApplicationController
   def create
     @item = Item.new(item_params)
     @item.user = current_user
-
+    if @item.image.blank?
+      # Generate an image using OpenAI's API
+      openai_key = ENV['OPENAI_API_KEY']
+      uri = URI('https://api.openai.com/v1/images/generations')
+      req = Net::HTTP::Post.new(uri)
+      req['Content-Type'] = 'application/json'
+      req['Authorization'] = "Bearer #{openai_key}"
+      req.body = {
+        'model': 'image-alpha-001',
+        'prompt': "Image of #{@item[:title]}",
+        'num_images': 1,
+        'size': '256x256'
+      }.to_json
+  
+      res = Net::HTTP.start(uri.hostname, uri.port, use_ssl: true) do |http|
+        http.request(req)
+      end
+  
+      # Parse the response to extract the generated image URL
+      response_body = JSON.parse(res.body)
+      image_url = response_body['data'][0]['url']
+  
+      # Add the generated image URL to item_params
+      item_params[:image] = image_url
+    end
+  
     if @item.save
       sendEvent("item_created", { item: item_params })
       render :show
